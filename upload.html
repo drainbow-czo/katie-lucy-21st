@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Share your photos — Katie & Lucy's 21st</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Playfair+Display:ital,wght@1,400&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Plus Jakarta Sans", sans-serif; background: #0D0A14; color: #FDFAF7; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1.5rem; }
+    .card { background: #1A1630; border: 1px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 2rem; width: 100%; max-width: 480px; }
+    h1 { font-family: "Playfair Display", serif; font-style: italic; font-size: 1.8rem; color: #C4B5FD; margin-bottom: 0.25rem; text-align: center; }
+    .sub { font-size: 0.82rem; color: rgba(253,250,247,0.4); text-align: center; margin-bottom: 1.75rem; }
+    .field-label { display: block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #C4B5FD; margin-bottom: 0.4rem; margin-top: 1rem; }
+    input[type="file"] { display: block; width: 100%; color: #FDFAF7; font-size: 1rem; padding: 0.6rem 0; cursor: pointer; }
+    input[type="text"] { display: block; width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(139,92,246,0.25); color: #FDFAF7; font-size: 0.9rem; padding: 0.7rem 0.9rem; border-radius: 8px; outline: none; }
+    input[type="text"]::placeholder { color: rgba(253,250,247,0.2); }
+    #uploadbtn { display: block; width: 100%; padding: 1rem; background: #8B5CF6; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 1.5rem; }
+    #uploadbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #statusmsg { margin-top: 1rem; font-size: 0.85rem; padding: 0.75rem; border-radius: 8px; text-align: center; min-height: 1.5em; line-height: 1.6; }
+    #preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.75rem; }
+    #preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; }
+    #backbtn { display: none; width: 100%; padding: 1rem; background: #6D28D9; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 0.75rem; }
+    .footer-link { margin-top: 1.5rem; font-size: 0.85rem; color: rgba(196,181,253,0.5); text-align: center; }
+    .footer-link a { color: #C4B5FD; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Share your snaps</h1>
+    <p class="sub">Katie &amp; Lucy will treasure every one 💜</p>
+    <span class="field-label">Your photos</span>
+    <input type="file" id="fileinput" accept="image/*" multiple />
+    <div id="preview"></div>
+    <span class="field-label">Your name</span>
+    <input type="text" id="gname" placeholder="e.g. Sarah" />
+    <span class="field-label">Caption (optional)</span>
+    <input type="text" id="gcap" placeholder="e.g. Best night ever!" />
+    <button id="uploadbtn">📷 Upload photos</button>
+    <div id="statusmsg"></div>
+    <button id="backbtn" onclick="window.location.href='/katie-lucy-21st/'">← Back to the party site</button>
+  </div>
+  <div class="footer-link"><a href="/katie-lucy-21st/">← Back to the party site</a></div>
+
+  <script>
+    var CLOUD  = 'pfcepcp9';
+    var PRESET = 'katie-lucy-party';
+    var GH_TOKEN = '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';
+    var GH_REPO  = 'drainbow-czo/katie-lucy-21st';
+    var GH_FILE  = 'photos.json';
+
+    var selectedFiles = [];
+    var fileinput = document.getElementById('fileinput');
+    var uploadbtn = document.getElementById('uploadbtn');
+    var statusmsg = document.getElementById('statusmsg');
+    var preview   = document.getElementById('preview');
+    var backbtn   = document.getElementById('backbtn');
+
+    function setStatus(msg, color) {
+      statusmsg.textContent = msg;
+      statusmsg.style.color = color || '#FDFAF7';
+    }
+
+    fileinput.addEventListener('change', function() {
+      selectedFiles = Array.from(this.files || []);
+      preview.innerHTML = '';
+      selectedFiles.forEach(function(f) {
+        var r = new FileReader();
+        r.onload = function(e) {
+          var img = document.createElement('img');
+          img.src = e.target.result;
+          preview.appendChild(img);
+        };
+        r.readAsDataURL(f);
+      });
+      if (selectedFiles.length) setStatus(selectedFiles.length + ' photo' + (selectedFiles.length > 1 ? 's' : '') + ' ready', '#6EE7B7');
+    });
+
+    async function saveToGitHub(photoEntry) {
+      try {
+        var getRes = await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
+          headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        var current = { photos: [] };
+        var sha = null;
+        if (getRes.ok) {
+          var fileData = await getRes.json();
+          sha = fileData.sha;
+          current = JSON.parse(atob(fileData.content.replace(/\n/g, '')));
+        }
+        current.photos.unshift(photoEntry);
+        var body = { message: 'Add party photo', content: btoa(unescape(encodeURIComponent(JSON.stringify(current)))) };
+        if (sha) body.sha = sha;
+        await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
+          method: 'PUT',
+          headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } catch(e) { console.log('GitHub save error:', e); }
+    }
+
+    uploadbtn.addEventListener('click', function() {
+      if (selectedFiles.length === 0 && fileinput.files && fileinput.files.length > 0) {
+        selectedFiles = Array.from(fileinput.files);
+      }
+      if (selectedFiles.length === 0) { setStatus('Please select photos first', '#FCA5A5'); return; }
+
+      var name    = document.getElementById('gname').value.trim() || 'Guest';
+      var caption = document.getElementById('gcap').value.trim();
+      var total   = selectedFiles.length;
+      var done    = 0, ok = 0;
+
+      uploadbtn.disabled = true;
+      setStatus('Uploading ' + total + ' photo' + (total > 1 ? 's' : '') + '...', '#C4B5FD');
+
+      selectedFiles.forEach(function(file) {
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('upload_preset', PRESET);
+        fd.append('folder', 'katie-lucy-21st');
+        fd.append('context', 'guest=' + encodeURIComponent(name) + '|caption=' + encodeURIComponent(caption));
+
+        fetch('https://api.cloudinary.com/v1_1/' + CLOUD + '/image/upload', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.secure_url) {
+            ok++;
+            saveToGitHub({ url: d.secure_url, name: name, caption: caption, ts: Date.now() });
+          }
+          done++;
+          if (done === total) finish();
+        })
+        .catch(function() { done++; if (done === total) finish(); });
+      });
+
+      function finish() {
+        uploadbtn.disabled = false;
+        if (ok > 0) {
+          setStatus('✓ ' + ok + ' photo' + (ok > 1 ? 's' : '') + ' shared — thank you! 🎉 Returning to party site...', '#6EE7B7');
+          backbtn.style.display = 'block';
+          preview.innerHTML = '';
+          selectedFiles = [];
+          fileinput.value = '';
+          document.getElementById('gname').value = '';
+          document.getElementById('gcap').value = '';
+          setTimeout(function() { window.location.href = '/katie-lucy-21st/'; }, 4000);
+        } else {
+          setStatus('Upload failed — please try again', '#FCA5A5');
+        }
+      }
+    });
+
+    backbtn.addEventListener('click', function() { window.location.href = '/katie-lucy-21st/'; });
+  </script>
+</body>
+</html>
