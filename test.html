@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Test</title>
+</head>
+<body style="font-family:sans-serif;padding:2rem;background:#111;color:white;">
+
+  <h2>Photo Upload Test</h2>
+  <p id="status" style="color:yellow;">Pick a photo to test</p>
+
+  <!-- Most basic possible file input -->
+  <br>
+  <input type="file" id="fileinput" accept="image/*" style="color:white;font-size:1.2rem;" />
+  <br><br>
+  <button id="uploadbtn" style="padding:1rem 2rem;font-size:1rem;background:purple;color:white;border:none;border-radius:8px;cursor:pointer;" disabled>
+    Upload to Cloudinary
+  </button>
+
+  <br><br>
+  <div id="result"></div>
+
+  <script>
+    const input  = document.getElementById('fileinput');
+    const btn    = document.getElementById('uploadbtn');
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+
+    input.addEventListener('change', function() {
+      const files = this.files;
+      status.textContent = files && files.length
+        ? '✓ Got ' + files.length + ' file — "' + files[0].name + '" (' + Math.round(files[0].size/1024) + 'KB). Now tap Upload.'
+        : 'No file detected';
+      btn.disabled = !(files && files.length);
+    });
+
+    btn.addEventListener('click', async function() {
+      const file = input.files[0];
+      if (!file) return;
+      status.textContent = 'Uploading to Cloudinary...';
+      btn.disabled = true;
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', 'katie-lucy-party');
+      fd.append('folder', 'katie-lucy-21st');
+
+      try {
+        const r = await fetch('https://api.cloudinary.com/v1_1/pfcepcp9/image/upload', {
+          method: 'POST',
+          body: fd
+        });
+        const d = await r.json();
+        if (d.secure_url) {
+          status.textContent = '✓ Upload SUCCESS!';
+          result.innerHTML = '<img src="' + d.secure_url + '" style="max-width:100%;margin-top:1rem;border-radius:8px;" />';
+        } else {
+          status.textContent = '✗ Cloudinary error: ' + JSON.stringify(d);
+          status.style.color = 'red';
+        }
+      } catch(e) {
+        status.textContent = '✗ Network error: ' + e.message;
+        status.style.color = 'red';
+      }
+      btn.disabled = false;
+    });
+  </script>
+</body>
+</html>
