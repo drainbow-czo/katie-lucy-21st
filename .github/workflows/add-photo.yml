@@ -1,1 +1,44 @@
-
+name: Add Photo
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Photo URL
+        required: true
+      name:
+        description: Guest name
+        required: true
+        default: Guest
+      caption:
+        description: Caption
+        required: false
+        default: ''
+      ts:
+        description: Timestamp
+        required: false
+        default: '0'
+jobs:
+  add-photo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PHOTOS_TOKEN }}
+      - name: Update photos.json
+        run: |
+          python3 -c "
+import json
+try:
+    with open('photos.json') as f:
+        data = json.load(f)
+except:
+    data = {'photos': []}
+data['photos'].insert(0, {'url': '${{ github.event.inputs.url }}', 'name': '${{ github.event.inputs.name }}', 'caption': '${{ github.event.inputs.caption }}', 'ts': ${{ github.event.inputs.ts }}})
+with open('photos.json', 'w') as f:
+    json.dump(data, f)
+"
+          git config user.email action@github.com
+          git config user.name GitHub-Action
+          git add photos.json
+          git diff --staged --quiet || git commit -m 'Add party photo'
+          git push
