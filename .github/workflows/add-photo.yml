@@ -25,18 +25,28 @@ jobs:
         with:
           token: ${{ secrets.PHOTOS_TOKEN }}
       - name: Update photos.json
+        env:
+          PHOTO_URL: ${{ github.event.inputs.url }}
+          PHOTO_NAME: ${{ github.event.inputs.name }}
+          PHOTO_CAPTION: ${{ github.event.inputs.caption }}
+          PHOTO_TS: ${{ github.event.inputs.ts }}
         run: |
-          python3 -c "
-import json
-try:
-    with open('photos.json') as f:
-        data = json.load(f)
-except:
-    data = {'photos': []}
-data['photos'].insert(0, {'url': '${{ github.event.inputs.url }}', 'name': '${{ github.event.inputs.name }}', 'caption': '${{ github.event.inputs.caption }}', 'ts': ${{ github.event.inputs.ts }}})
-with open('photos.json', 'w') as f:
-    json.dump(data, f)
-"
+          python3 << 'PYEOF'
+          import json, os
+          try:
+              with open('photos.json') as f:
+                  data = json.load(f)
+          except:
+              data = {'photos': []}
+          data['photos'].insert(0, {
+              'url': os.environ['PHOTO_URL'],
+              'name': os.environ['PHOTO_NAME'],
+              'caption': os.environ['PHOTO_CAPTION'],
+              'ts': int(os.environ.get('PHOTO_TS', '0') or '0')
+          })
+          with open('photos.json', 'w') as f:
+              json.dump(data, f)
+          PYEOF
           git config user.email action@github.com
           git config user.name GitHub-Action
           git add photos.json
